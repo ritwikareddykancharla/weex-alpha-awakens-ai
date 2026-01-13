@@ -20,23 +20,23 @@ A production-ready AI-powered trading system for the WEEX Alpha Awakens competit
 ## 🛠 **Complete Cloud Server Setup Guide**
 
 ### **Step 1: Launch Cloud Instance**
+Recommended: **Amazon Linux 2023** (Stable, optimized for AWS) or Ubuntu 22.04.
+Connect via SSH:
 ```bash
-# AWS EC2 (Recommended - t3.medium, Ubuntu 22.04)
-# Alibaba Cloud ECS (Alternative)
-# Google Cloud Compute Engine
-
-# Connect via SSH:
-ssh -i your-key.pem ubuntu@your-server-ip
+ssh -i "your-key.pem" ec2-user@your-server-ip
 ```
 
-### **Step 2: System Initialization**
+### **Step 2: System Initialization (Amazon Linux 2023)**
+For Ubuntu, replace `dnf` with `apt` and package names accordingly.
+
 ```bash
 # Update system
-sudo apt update && sudo apt upgrade -y
+sudo dnf update -y
 
 # Install essential packages
-sudo apt install -y python3.9 python3-pip python3.9-venv git curl wget build-essential
-sudo apt install -y tmux htop nvtop  # Monitoring tools
+sudo dnf install -y git python3-pip python3-devel gcc
+# (Optional) Install tmux/htop if available in repositories
+sudo dnf install -y tmux htop
 ```
 
 ### **Step 3: Install TA-LIB (Required for Technical Indicators)**
@@ -97,10 +97,10 @@ StartLimitIntervalSec=0
 
 [Service]
 Type=simple
-User=ubuntu
-WorkingDirectory=/home/ubuntu/weex-ai-trading
-Environment="PATH=/home/ubuntu/weex-ai-trading/venv/bin"
-ExecStart=/home/ubuntu/weex-ai-trading/venv/bin/python src/main.py
+User=ec2-user  # CHANGE THIS (use 'ubuntu' for Ubuntu, 'ec2-user' for Amazon Linux)
+WorkingDirectory=/home/ec2-user/weex-ai-trading
+Environment="PATH=/home/ec2-user/weex-ai-trading/venv/bin"
+ExecStart=/home/ec2-user/weex-ai-trading/venv/bin/python src/main.py
 Restart=always
 RestartSec=10
 StandardOutput=syslog
@@ -506,10 +506,16 @@ Copy this to your cloud server and run:
 echo "=== WEEX AI Trading Competition Setup ==="
 
 # 1. Update system
-sudo apt update && sudo apt upgrade -y
+# Amazon Linux 2023:
+sudo dnf update -y
+# Ubuntu:
+# sudo apt update && sudo apt upgrade -y
 
 # 2. Install dependencies
-sudo apt install -y python3.9 python3-pip python3.9-venv git
+# Amazon Linux 2023:
+sudo dnf install -y git python3-pip python3-devel gcc
+# Ubuntu:
+# sudo apt install -y python3.9 python3-pip python3.9-venv git
 
 # 3. Clone repository
 git clone https://github.com/YOUR_USERNAME/weex-ai-trading.git
