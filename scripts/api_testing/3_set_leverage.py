@@ -19,8 +19,8 @@ def generate_signature(secret_key, timestamp, method, request_path, query_string
 
 def send_request_post(api_key, secret_key, access_passphrase, method, request_path, query_string, body):
   timestamp = str(int(time.time() * 1000))
-  body_json = json.dumps(body)
-  signature = generate_signature(secret_key, timestamp, method, request_path, query_string, body_json)
+  body = json.dumps(body)
+  signature = generate_signature(secret_key, timestamp, method, request_path, query_string, body)
   headers = {
         "ACCESS-KEY": api_key,
         "ACCESS-SIGN": signature,
@@ -29,9 +29,9 @@ def send_request_post(api_key, secret_key, access_passphrase, method, request_pa
         "Content-Type": "application/json",
         "locale": "en-US"
   }
-  url = "https://api-contract.weex.com/" 
+  url = "https://api-contract.weex.com/"  # Please replace with the actual API address
   if method == "POST":
-    response = requests.post(url + request_path, headers=headers, data=body_json)
+    response = requests.post(url + request_path, headers=headers, data=body)
   return response
 
 def leverage():

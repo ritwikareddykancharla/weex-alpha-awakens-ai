@@ -28,14 +28,14 @@ def send_request_get(api_key, secret_key, access_passphrase, method, request_pat
         "locale": "en-US"
   }
 
-  url = "https://api-contract.weex.com/"
+  url = "https://api-contract.weex.com/"  # Please replace with the actual API address
   if method == "GET":
-    response = requests.get(url + request_path + query_string, headers=headers)
+    response = requests.get(url + request_path+query_string, headers=headers)
   return response
 
 def fills():
     request_path = "/capi/v2/order/fills"
-    query_string = "?symbol=cmt_btcusdt"
+    query_string = "?symbol=cmt_btcusdt" # Removed orderId to check all recent fills as per likelihood of user not having ID
     response = send_request_get(api_key, secret_key, access_passphrase, "GET", request_path, query_string)
     print(response.status_code)
     print(response.text)

@@ -28,7 +28,7 @@ def send_request_get(api_key, secret_key, access_passphrase, method, request_pat
         "locale": "en-US"
   }
 
-  url = "https://api-contract.weex.com/" 
+  url = "https://api-contract.weex.com/"  # Please replace with the actual API address
   if method == "GET":
     response = requests.get(url + request_path+query_string, headers=headers)
   return response

@@ -19,8 +19,8 @@ def generate_signature(secret_key, timestamp, method, request_path, query_string
 
 def send_request_post(api_key, secret_key, access_passphrase, method, request_path, query_string, body):
   timestamp = str(int(time.time() * 1000))
-  body_json = json.dumps(body)
-  signature = generate_signature(secret_key, timestamp, method, request_path, query_string, body_json)
+  body = json.dumps(body)
+  signature = generate_signature(secret_key, timestamp, method, request_path, query_string, body)
   headers = {
         "ACCESS-KEY": api_key,
         "ACCESS-SIGN": signature,
@@ -29,16 +29,16 @@ def send_request_post(api_key, secret_key, access_passphrase, method, request_pa
         "Content-Type": "application/json",
         "locale": "en-US"
   }
-  url = "https://api-contract.weex.com/" 
+  url = "https://api-contract.weex.com/"  # Please replace with the actual API address
   if method == "POST":
-    response = requests.post(url + request_path, headers=headers, data=body_json)
+    response = requests.post(url + request_path, headers=headers, data=body)
   return response
 
 def placeOrder():
     request_path = "/capi/v2/order/placeOrder"
     body = {
         "symbol": "cmt_btcusdt",
-        "client_oid": f"demo_{int(time.time())}",
+        "client_oid": f"test_{int(time.time())}", # Added timestamp to client_oid to avoid dupe error if run twice
         "size": "0.0001",
         "type": "1",
         "order_type": "0",
