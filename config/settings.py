@@ -1,5 +1,5 @@
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Dict
 from dotenv import load_dotenv
 
@@ -9,11 +9,11 @@ load_dotenv()
 class TradingConfig:
     """Trading configuration"""
     # Competition pairs
-    TRADING_PAIRS: List[str] = [
+    TRADING_PAIRS: List[str] = field(default_factory=lambda: [
         "cmt_btcusdt", "cmt_ethusdt", "cmt_bnbusdt",
         "cmt_solusdt", "cmt_xrpusdt", "cmt_adausdt",
         "cmt_dogeusdt", "cmt_ltcusdt"
-    ]
+    ])
     
     # Risk management
     MAX_LEVERAGE: int = 20

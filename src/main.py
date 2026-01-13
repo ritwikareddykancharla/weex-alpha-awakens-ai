@@ -1,138 +1,102 @@
-#!/usr/bin/env python3
-"""
-Main entry point for WEEX AI Trading Strategy
-"""
-
-import asyncio
-import signal
-import sys
-from datetime import datetime
-
+import time
 from src.api.weex_client import WeexAPIClient
-from src.strategy.ai_trend_follower import AITrendFollower
-from src.utils.logger import ai_logger, setup_logger
-from config.settings import config
+from src.data.coingecko_loader import CoinGeckoLoader
+from src.ai.regime_classifier import RegimeClassifier
+from src.ai.funding_agent import FundingAgent
+from src.execution.risk_engine import RiskEngine
+from src.utils.logger import setup_logger
+import pandas as pd
+import json
 
-logger = setup_logger(__name__)
+logger = setup_logger("MainOrchestrator")
 
-class TradingBot:
-    """Main trading bot controller"""
+def run_loop():
+    logger.info("Starting WEEX AI Hackathon Bot (Perp-Optimized)...")
     
-    def __init__(self):
-        self.api_client = WeexAPIClient()
-        self.strategy = None
-        self.is_running = False
-        
-    async def initialize(self):
-        """Initialize trading bot"""
-        logger.info("Initializing WEEX AI Trading Bot...")
-        
-        # Test API connection
-        if not self.api_client.test_connection():
-            logger.error("API connection failed. Check credentials and network.")
-            return False
-        
-        logger.info("API connection successful")
-        
-        # Check account balance
+    # Initialize Components
+    weex = WeexAPIClient()
+    cg = CoinGeckoLoader()
+    classifier = RegimeClassifier()
+    funding_agent = FundingAgent()
+    risk_engine = RiskEngine()
+    
+    # Config
+    symbol = "cmt_dogeusdt" # Example pair from docs
+    
+    # Main Loop
+    while True:
         try:
-            balance = self.api_client.get_account_balance()
-            usdt_balance = next(
-                (float(item['available']) for item in balance 
-                 if item['coinName'] == 'USDT'), 0
-            )
-            logger.info(f"Account balance: {usdt_balance:.2f} USDT")
+            logger.info("--- New Cycle ---")
             
-            if usdt_balance < config.MIN_TRADE_AMOUNT:
-                logger.warning(
-                    f"Balance below minimum trade amount ({config.MIN_TRADE_AMOUNT} USDT)"
-                )
+            # 1. Market Discovery (CoinGecko Track)
+            # Find opportunities or just get context
+            opportunities = cg.scan_market_opportunities()
+            if not opportunities.empty:
+                logger.info(f"Top CG Opp: {opportunities.iloc[0]['symbol']} (Vol: {opportunities.iloc[0]['volatility_score']:.2f}%)")
+            
+            # 2. Fetch Data (WEEX)
+            ticker = weex.get_ticker(symbol)
+            # Simulate generic 'market_data' dict for agents
+            current_price = float(ticker.get('close', 0)) # hypothetical field
+            funding_data = weex.get_funding_rate_history(symbol, page_size=1)
+            latest_funding = float(funding_data[0]['fundingRate']) if funding_data else 0.0
+            
+            # Get specific klines for Regime Classifier
+            klines = weex.get_klines(symbol, interval="15m", limit=50)
+            # Parse klines to DF: [time, open, high, low, close, volume, ...]
+            # Adjust index based on actual API response format (assuming standard list)
+            df = pd.DataFrame(klines, columns=['time', 'open', 'high', 'low', 'close', 'vol', 'a', 'b'])
+            df['close'] = df['close'].astype(float)
+            df['fundingRate'] = latest_funding # Approximate for recent history if history not detailed enough
+            
+            # 3. AI Regime Classification
+            if len(df) > 20:
+                classifier.fit(df) # Online learning / Refit
+                regime = classifier.predict(df)
+            else:
+                regime = 0 # Default Calm
                 
-        except Exception as e:
-            logger.error(f"Failed to check balance: {e}")
-        
-        # Initialize strategy
-        self.strategy = AITrendFollower(self.api_client)
-        
-        # Log initialization
-        ai_logger.log_risk({
-            "event": "BOT_INITIALIZED",
-            "timestamp": datetime.now().isoformat(),
-            "config": {
-                "trading_pairs": config.TRADING_PAIRS,
-                "max_leverage": config.MAX_LEVERAGE,
-                "daily_loss_limit": config.DAILY_LOSS_LIMIT
+            # 4. Strategy Signal
+            market_context = {
+                'symbol': symbol,
+                'fundingRate': latest_funding,
+                'markPrice': current_price
             }
-        })
-        
-        return True
-    
-    async def run(self):
-        """Main execution loop"""
-        if not await self.initialize():
-            logger.error("Initialization failed. Exiting.")
-            return
-        
-        self.is_running = True
-        
-        # Set up signal handlers for graceful shutdown
-        signal.signal(signal.SIGINT, self.signal_handler)
-        signal.signal(signal.SIGTERM, self.signal_handler)
-        
-        logger.info("Starting trading strategy...")
-        
-        try:
-            # Run strategy
-            await self.strategy.execute_strategy()
+            decision = funding_agent.analyze(market_context, regime)
             
-        except asyncio.CancelledError:
-            logger.info("Strategy execution cancelled")
+            # 5. Risk Check
+            # Assume portfolio value 1000 for mock
+            decision = risk_engine.check_risk(decision, regime, portfolio_value=1000)
+            
+            # 6. Execution & Logging
+            if decision['action'] != "NEUTRAL":
+                log_entry = {
+                    "timestamp": time.time(),
+                    "regime": int(regime),
+                    "action": decision['action'],
+                    "symbol": symbol,
+                    "funding_rate": latest_funding,
+                    "confidence": decision.get('confidence', 0),
+                    "max_leverage": decision.get('max_leverage', 1),
+                    "features": {
+                        "cg_volatility_top": float(opportunities.iloc[0]['volatility_score']) if not opportunities.empty else 0
+                    }
+                }
+                
+                # Write to "AI Log" for Hackathon (critical requirement)
+                with open("ai_trading_log.json", "a") as f:
+                    f.write(json.dumps(log_entry) + "\n")
+                    
+                logger.info(f"EXECUTED: {decision['action']} | {decision['reason']}")
+            else:
+                logger.info("No Trade (Neutral)")
+                
+            # Sleep
+            time.sleep(60) # 1 min loop
+            
         except Exception as e:
-            logger.error(f"Strategy execution failed: {e}")
-        finally:
-            await self.shutdown()
-    
-    def signal_handler(self, signum, frame):
-        """Handle shutdown signals"""
-        logger.info(f"Received signal {signum}. Shutting down...")
-        self.is_running = False
-        
-        # Cancel all tasks
-        for task in asyncio.all_tasks():
-            task.cancel()
-    
-    async def shutdown(self):
-        """Graceful shutdown"""
-        logger.info("Shutting down trading bot...")
-        
-        # Close all positions (optional - be careful with this)
-        # await self.close_all_positions()
-        
-        # Generate final log summary
-        summary = ai_logger.get_log_summary()
-        logger.info(f"Final log summary: {summary}")
-        
-        # Log shutdown
-        ai_logger.log_risk({
-            "event": "BOT_SHUTDOWN",
-            "timestamp": datetime.now().isoformat(),
-            "summary": summary
-        })
-        
-        logger.info("Shutdown complete")
-
-async def main():
-    """Main entry point"""
-    bot = TradingBot()
-    
-    try:
-        await bot.run()
-    except KeyboardInterrupt:
-        logger.info("Keyboard interrupt received")
-    except Exception as e:
-        logger.error(f"Unexpected error: {e}")
-        sys.exit(1)
+            logger.error(f"Loop Error: {e}")
+            time.sleep(10)
 
 if __name__ == "__main__":
-    # Run the bot
-    asyncio.run(main())
+    run_loop()

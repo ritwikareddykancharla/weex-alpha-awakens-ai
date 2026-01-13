@@ -125,7 +125,20 @@ class WeexAPIClient:
         return self._request(
             "GET", f"/capi/v2/market/depth?symbol={symbol}&depth={depth}"
         )
-    
+        
+    def get_funding_rate_history(self, symbol: str, page_size: int = 10) -> List[Dict]:
+        """Get historical funding rates (Critical for Strategy)"""
+        params = {
+            "symbol": symbol,
+            "pageSize": page_size,
+            "pageIndex": 1
+        }
+        return self._request("GET", "/capi/v2/market/fundingRate", params=params)
+
+    def get_open_interest(self, symbol: str) -> Dict:
+        """Get Open Interest (Critical for Regime Detection)"""
+        return self._request("GET", f"/capi/v2/market/openInterest?symbol={symbol}")
+        
     # Order Methods
     def place_order(self, symbol: str, side: str, order_type: str,
                    quantity: float, price: float = None,
