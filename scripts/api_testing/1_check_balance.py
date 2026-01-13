@@ -6,13 +6,11 @@ import requests
 import os
 from dotenv import load_dotenv
 
-# Load keys
 load_dotenv()
 api_key = os.getenv("WEEX_API_KEY")
 secret_key = os.getenv("WEEX_SECRET_KEY")
 access_passphrase = os.getenv("WEEX_PASSPHRASE")
 
-# --- Authentication ---
 def generate_signature_get(secret_key, timestamp, method, request_path, query_string):
   message = timestamp + method.upper() + request_path + query_string
   signature = hmac.new(secret_key.encode(), message.encode(), hashlib.sha256).digest()
@@ -30,25 +28,17 @@ def send_request_get(api_key, secret_key, access_passphrase, method, request_pat
         "locale": "en-US"
   }
 
-  url = "https://api-contract.weex.com"
-  print(f"--- {method} {request_path} (Private API) ---")
+  url = "https://api-contract.weex.com/" 
   if method == "GET":
-    response = requests.get(url + request_path + query_string, headers=headers)
+    response = requests.get(url + request_path+query_string, headers=headers)
   return response
 
-# --- Main Logic ---
 def assets():
     request_path = "/capi/v2/account/assets"
     query_string = ""
-    try:
-        response = send_request_get(api_key, secret_key, access_passphrase, "GET", request_path, query_string)
-        print(f"Status: {response.status_code}")
-        print(response.text)
-    except Exception as e:
-        print(f"Error: {e}")
+    response = send_request_get(api_key, secret_key, access_passphrase, "GET", request_path, query_string)
+    print(response.status_code)
+    print(response.text)
 
 if __name__ == '__main__':
-    if not api_key:
-        print("Error: WEEX_API_KEY not found in .env")
-    else:
-        assets()
+    assets()
