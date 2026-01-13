@@ -1,4 +1,11 @@
 import requests
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+api_key = os.getenv("WEEX_API_KEY")
+secret_key = os.getenv("WEEX_SECRET_KEY")
+access_passphrase = os.getenv("WEEX_PASSPHRASE")
 
 def send_request_get( method, request_path, query_string):
   url = "https://api-contract.weex.com/"  # Please replace with the actual API address
