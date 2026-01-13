@@ -98,9 +98,9 @@ StartLimitIntervalSec=0
 [Service]
 Type=simple
 User=ec2-user  # CHANGE THIS (use 'ubuntu' for Ubuntu, 'ec2-user' for Amazon Linux)
-WorkingDirectory=/home/ec2-user/weex-ai-trading
-Environment="PATH=/home/ec2-user/weex-ai-trading/venv/bin"
-ExecStart=/home/ec2-user/weex-ai-trading/venv/bin/python src/main.py
+WorkingDirectory=/home/ec2-user/weex-alpha-awakens-ai
+Environment="PATH=/home/ec2-user/weex-alpha-awakens-ai/venv/bin"
+ExecStart=/home/ec2-user/weex-alpha-awakens-ai/venv/bin/python src/main.py
 Restart=always
 RestartSec=10
 StandardOutput=syslog
@@ -194,7 +194,7 @@ python scripts/paper_trade.py --observe-only --duration 24h
 ## 🏗️ **Project Structure & Key Files**
 
 ```
-weex-ai-trading/
+weex-alpha-awakens-ai/
 ├── src/
 │   ├── api/
 │   │   ├── weex_client.py          # WEEX API wrapper (MOST IMPORTANT)
