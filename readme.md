@@ -55,8 +55,8 @@ pip install TA-Lib
 ### **Step 4: Clone and Setup Project**
 ```bash
 # Clone your repository
-git clone https://github.com/YOUR_USERNAME/weex-ai-trading.git
-cd weex-ai-trading
+git clone https://github.com/ritwikareddykancharla/weex-alpha-awakens-ai.git
+cd weex-alpha-awakens-ai
 
 # Create virtual environment
 python3 -m venv venv
@@ -518,8 +518,8 @@ sudo dnf install -y git python3-pip python3-devel gcc
 # sudo apt install -y python3.9 python3-pip python3.9-venv git
 
 # 3. Clone repository
-git clone https://github.com/YOUR_USERNAME/weex-ai-trading.git
-cd weex-ai-trading
+git clone https://github.com/ritwikareddykancharla/weex-alpha-awakens-ai.git
+cd weex-alpha-awakens-ai
 
 # 4. Setup virtual environment
 python3 -m venv venv
