@@ -69,8 +69,7 @@ pip install -r requirements.txt
 
 ### **Step 5: Configure Environment**
 ```bash
-# Copy and edit configuration
-cp .env.example .env
+# Create configuration file
 nano .env
 
 # Add your WEEX API credentials (after registration approval):
@@ -534,7 +533,7 @@ curl -s https://ipinfo.io/ip
 
 echo "=== Setup Complete ==="
 echo "1. Add above IP to WEEX whitelist"
-echo "2. Copy .env.example to .env and add API keys"
+echo "2. Create .env file and add API keys"
 echo "3. Run: python scripts/train_model.py"
 echo "4. Start: python src/main.py"
 ```
