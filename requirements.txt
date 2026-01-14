@@ -10,6 +10,7 @@ joblib
 
 # API & Web
 requests
+websocket-client
 
 # Utils
 python-dotenv

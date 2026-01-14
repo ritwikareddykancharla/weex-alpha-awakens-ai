@@ -5,6 +5,7 @@ torch
 numpy
 pandas
 requests
+websocket-client
 python-dotenv
 joblib
 lightgbm
