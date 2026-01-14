@@ -63,8 +63,8 @@ class WeexClient:
     def get_kline(self, symbol, limit=100):
         # Fetches historical candles for AI training
         # Note: Adjust endpoint if specific 'kline' endpoint differs in contest docs
-        return self.request("GET", "/capi/v2/market/kline", 
-                          params={"symbol": symbol, "limit": limit, "period": TIMEFRAME})
+        return self.request("GET", "/capi/v2/market/historyCandles", 
+                          params={"symbol": symbol, "limit": min(limit, 100), "granularity": TIMEFRAME})
 
     def get_balance(self):
         data = self.request("GET", "/capi/v2/account/assets")

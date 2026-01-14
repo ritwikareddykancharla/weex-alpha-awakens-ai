@@ -38,23 +38,24 @@ def fetch_single_pair(client, symbol, days, output_file):
     end_time = int(time.time() * 1000) # Now (ms)
     start_time_limit = end_time - (days * 24 * 60 * 60 * 1000)
     
-    batch_size = 1000 
+    batch_size = 100  # API Limit is 100
     
     while True:
         try:
             params = {
                 "symbol": symbol,
-                "interval": "15m",
+                "granularity": "15m",
                 "limit": batch_size,
-                "end": end_time
+                "endTime": end_time
             }
-            klines = client._request("GET", "/capi/v2/market/klines", params=params)
+            klines = client._request("GET", "/capi/v2/market/historyCandles", params=params)
             
             if not klines or len(klines) == 0:
                 break
                 
             # Convert to DF
-            batch_df = pd.DataFrame(klines, columns=['time', 'open', 'high', 'low', 'close', 'vol', 'a', 'b'])
+            # Response: [time, open, high, low, close, vol, vol_quote]
+            batch_df = pd.DataFrame(klines, columns=['time', 'open', 'high', 'low', 'close', 'vol', 'vol_quote'])
             batch_df['time'] = batch_df['time'].astype(int)
             
             earliest_timestamp = batch_df['time'].min()
@@ -81,7 +82,7 @@ def fetch_single_pair(client, symbol, days, output_file):
         return
 
     # Process
-    df = pd.DataFrame(all_klines, columns=['time', 'open', 'high', 'low', 'close', 'vol', 'a', 'b'])
+    df = pd.DataFrame(all_klines, columns=['time', 'open', 'high', 'low', 'close', 'vol', 'vol_quote'])
     cols = ['open', 'high', 'low', 'close', 'vol']
     for c in cols:
         df[c] = df[c].astype(float)

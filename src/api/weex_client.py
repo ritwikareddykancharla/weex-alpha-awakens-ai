@@ -115,10 +115,10 @@ class WeexAPIClient:
         """Get candlestick data"""
         params = {
             "symbol": symbol,
-            "interval": interval,
-            "limit": limit
+            "granularity": interval,  # Changed from interval to granularity
+            "limit": min(limit, 100)  # Max 100 per request
         }
-        return self._request("GET", "/capi/v2/market/klines", params=params)
+        return self._request("GET", "/capi/v2/market/historyCandles", params=params)
     
     def get_orderbook(self, symbol: str, depth: int = 20) -> Dict:
         """Get order book depth"""
