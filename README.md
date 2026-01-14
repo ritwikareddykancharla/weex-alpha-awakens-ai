@@ -1,5 +1,22 @@
 # weex-alpha-awakens-ai
 
+# 🧠 Multi-Strategy Quant Engine
+
+This repository houses a **Quantitative Momentum Strategy** enhanced by Machine Learning (GMM + DQN) for the WEEX Global AI Trading Hackathon (Jan-Feb 2026).
+
+### 📊 Core Strategies & Alpha Factors
+
+1.  **Quantitative Momentum (DQN)**
+    *   Utilizes a Deep Q-Network (Reinforcement Learning) to identify high-probability breakout setups across 8 concurrent assets.
+    *   Filters momentum signals using volume-weighted verification to avoid false breakouts.
+
+2.  **GMM Regime Classification**
+    *   Deploys **Gaussian Mixture Models** to classify market states into "Trending", "Mean Reverting", or "Volatile".
+    *   Dynamically switches strategy parameters (e.g., tightens Stop Loss in high volatility) based on the detected regime.
+
+3.  **Dynamic Portfolio Allocation**
+    *   Rejects static sizing. Uses **Kelly Criterion** estimation to optimally size bets based on model confidence.
+    *   Real-time rebalancing via WebSocket data streams to capture alpha in microseconds.
 # Advanced Strategy for WEEX AI Hackathon: Neuro-Symbolic Adaptive Market Engine
 
 ---
