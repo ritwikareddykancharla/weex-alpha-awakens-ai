@@ -23,6 +23,7 @@ class WeexWSClient:
         self.is_running = True
         self.ws = websocket.WebSocketApp(
             self.url,
+            header={"User-Agent": "Mozilla/5.0"},
             on_open=self._on_open,
             on_message=self._on_message,
             on_error=self._on_error,
