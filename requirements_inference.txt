@@ -1,0 +1,11 @@
+# Optimized for EC2 Inference (No GPU)
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+torch
+numpy
+pandas
+requests
+python-dotenv
+joblib
+lightgbm
+scikit-learn
