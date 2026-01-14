@@ -35,8 +35,7 @@ def send_request(method, endpoint, params=None, body=None):
         "ACCESS-TIMESTAMP": timestamp,
         "ACCESS-PASSPHRASE": PASSPHRASE,
         "Content-Type": "application/json",
-        "locale": "en-US",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        "locale": "en-US"
     }
     
     url = f"{BASE_URL}{request_path}{query_string}"
@@ -125,18 +124,7 @@ def test_fills(symbol="cmt_btcusdt", order_id=None):
     print("Checking Fills...")
     send_request("GET", "/capi/v2/order/fills", params=params)
 
-
-# --- Debug: Check IP ---
-def check_ip():
-    try:
-        ip = requests.get("https://api.ipify.org", timeout=5).text
-        print(f"\n[DEBUG] Current External IP: {ip}")
-        print("Make sure THIS specific IP is whitelisted in WEEX API settings.")
-    except Exception as e:
-        print(f"[DEBUG] Could not fetch IP: {e}")
-
 if __name__ == "__main__":
-    check_ip()
     if not API_KEY:
         print("ERROR: API Keys not found in .env")
         exit(1)

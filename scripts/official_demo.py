@@ -17,20 +17,20 @@ access_passphrase = os.getenv("WEEX_PASSPHRASE")
 def generate_signature(secret_key, timestamp, method, request_path, query_string, body):
   message = timestamp + method.upper() + request_path + query_string + str(body)
   signature = hmac.new(secret_key.encode(), message.encode(), hashlib.sha256).digest()
-  # print(base64.b64encode(signature).decode())
+  print(base64.b64encode(signature).decode())
   return base64.b64encode(signature).decode()
 
 
 def generate_signature_get(secret_key, timestamp, method, request_path, query_string):
   message = timestamp + method.upper() + request_path + query_string
   signature = hmac.new(secret_key.encode(), message.encode(), hashlib.sha256).digest()
-  # print(base64.b64encode(signature).decode())
+  print(base64.b64encode(signature).decode())
   return base64.b64encode(signature).decode()
 
 
 def send_request_post(api_key, secret_key, access_passphrase, method, request_path, query_string, body):
   timestamp = str(int(time.time() * 1000))
-  # print(timestamp)
+  print(timestamp)
   body = json.dumps(body)
   signature = generate_signature(secret_key, timestamp, method, request_path, query_string, body)
 
@@ -52,7 +52,7 @@ def send_request_post(api_key, secret_key, access_passphrase, method, request_pa
 
 def send_request_get(api_key, secret_key, access_passphrase, method, request_path, query_string):
   timestamp = str(int(time.time() * 1000))
-  # print(timestamp)
+  print(timestamp)
   signature = generate_signature_get(secret_key, timestamp, method, request_path, query_string)
 
   headers = {

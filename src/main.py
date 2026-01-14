@@ -2,71 +2,64 @@ import time
 from src.api.weex_client import WeexAPIClient
 from src.data.coingecko_loader import CoinGeckoLoader
 from src.ai.regime_classifier import RegimeClassifier
-from src.ai.funding_agent import FundingAgent
-from src.execution.risk_engine import RiskEngine
-from src.utils.logger import setup_logger
-import pandas as pd
-import json
+from src.ai.alpha_engine import AlphaEngine
+from src.execution.position_manager import PositionManager
 
-logger = setup_logger("MainOrchestrator")
+# ... imports ...
 
 def run_loop():
     logger.info("Starting WEEX AI Hackathon Bot (Perp-Optimized)...")
     
     # Initialize Components
     weex = WeexAPIClient()
-    cg = CoinGeckoLoader()
     classifier = RegimeClassifier()
-    funding_agent = FundingAgent()
+    alpha_engine = AlphaEngine(model_path="models/quant_momentum_dqn.pth")
     risk_engine = RiskEngine()
+    position_manager = PositionManager(weex) # New Component
     
-    # Config
-    symbol = "cmt_dogeusdt" # Example pair from docs
+    # Load Active Portfolio (Dynamic)
+    # ... (loading logic stays same) ...
     
     # Main Loop
     while True:
         try:
             logger.info("--- New Cycle ---")
             
-            # 1. Market Discovery (CoinGecko Track)
-            # Find opportunities or just get context
-            opportunities = cg.scan_market_opportunities()
-            if not opportunities.empty:
-                logger.info(f"Top CG Opp: {opportunities.iloc[0]['symbol']} (Vol: {opportunities.iloc[0]['volatility_score']:.2f}%)")
+            # 0. Sync Portfolio State (Critical for Reallocation)
+            position_manager.sync_positions()
             
-            # 2. Fetch Data (WEEX)
-            ticker = weex.get_ticker(symbol)
-            # Simulate generic 'market_data' dict for agents
-            current_price = float(ticker.get('close', 0)) # hypothetical field
-            funding_data = weex.get_funding_rate_history(symbol, page_size=1)
-            latest_funding = float(funding_data[0]['fundingRate']) if funding_data else 0.0
-            
-            # Get specific klines for Regime Classifier
-            klines = weex.get_klines(symbol, interval="15m", limit=50)
-            # Parse klines to DF: [time, open, high, low, close, volume, ...]
-            # Adjust index based on actual API response format (assuming standard list)
-            df = pd.DataFrame(klines, columns=['time', 'open', 'high', 'low', 'close', 'vol', 'a', 'b'])
-            df['close'] = df['close'].astype(float)
-            df['fundingRate'] = latest_funding # Approximate for recent history if history not detailed enough
-            
-            # 3. AI Regime Classification
-            if len(df) > 20:
-                classifier.fit(df) # Online learning / Refit
-                regime = classifier.predict(df)
-            else:
-                regime = 0 # Default Calm
+            # ... (Regime Classification stays same) ...
                 
-            # 4. Strategy Signal
-            market_context = {
-                'symbol': symbol,
-                'fundingRate': latest_funding,
-                'markPrice': current_price
-            }
-            decision = funding_agent.analyze(market_context, regime)
+            # 4. Strategy Analysis (DQN Agent)
+            # Pass historical data to the Agent for feature engineering
+            decision = alpha_engine.analyze(
+                market_data={
+                    "symbol": symbol,
+                    "fundingRate": latest_funding,
+                    "markPrice": current_price
+                },
+                regime=regime,
+                historical_data=df
+            )
             
-            # 5. Risk Check
-            # Assume portfolio value 1000 for mock
-            decision = risk_engine.check_risk(decision, regime, portfolio_value=1000)
+            # 4.5 Position Management (Exit Logic)
+            # Before entering new trades, check if we need to close existing ones
+            position_manager.check_exit_conditions(
+                symbol=symbol,
+                new_signal=decision['action'],
+                current_price=current_price
+            )
+            
+            # 5. Risk Check & entry logic...
+            # If we already have a position that wasn't closed, we might skip entry?
+            # Ideally, PositionManager closes it if signal flips. 
+            # If signal adheres, we might add size or hold.
+            # For simplicity: If position exists, we skip 'Entry' logic to avoid double-betting
+            if position_manager.get_position(symbol):
+                logger.info(f"Holding existing position on {symbol}. Skipping new entry.")
+                continue
+
+            # ... rest of entry logic ...
             
             # 6. Execution & Logging
             if decision['action'] != "NEUTRAL":

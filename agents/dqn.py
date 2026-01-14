@@ -84,6 +84,13 @@ class TradingFeatureEngineer:
         df['spread'] = (df['high'] - df['low']) / df['close']
         features.append(df['spread'])
         
+        # Funding Rate (Critical for Sweep Strategy)
+        if 'fundingRate' in df.columns:
+            features.append(df['fundingRate'])
+        else:
+            # Fallback if training on spot data (mock 0 funding)
+            features.append(pd.Series(0, index=df.index))
+        
         # Concatenate and fill NaN with 0 (hackathon-safe)
         feature_matrix = pd.concat(features, axis=1).fillna(0).values
         
@@ -452,6 +459,7 @@ class WEEXDQNTradingBot:
     def __init__(self, symbol: str = "BTC/USDT", leverage: int = 1):
         self.config = HACKATHON_CONFIG.copy()
         self.config['gamma'] = 0.99
+        self.ACTION_SPACE = CryptoTradingEnv.ACTION_SPACE
         
         self.symbol = symbol
         self.leverage = leverage
@@ -503,11 +511,19 @@ class WEEXDQNTradingBot:
             # Compute reward (next 5-step return)
             future_return = (prices[i+5] - prices[i]) / prices[i]
             
+            # Pad with dummy portfolio context (4 dims) to match env state
+            # Context: [norm_balance, pos_val, has_pos, pnl]
+            # Assume neutral context for warm-start (1.0 balance, 0 pos, 0 flag, 0 pnl)
+            dummy_context = np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float32)
+            
+            state = np.concatenate([features[i], dummy_context])
+            next_state = np.concatenate([features[i+1], dummy_context])
+            
             demonstrations.append({
-                'state': features[i],
+                'state': state,
                 'action': action,
                 'reward': future_return,
-                'next_state': features[i+1],
+                'next_state': next_state,
                 'done': False
             })
         

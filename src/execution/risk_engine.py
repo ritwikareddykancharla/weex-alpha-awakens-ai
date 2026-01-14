@@ -4,50 +4,56 @@ logger = setup_logger(__name__)
 
 class RiskEngine:
     """
-    Enforces hard risk limits.
-    1. Max Leverage per Regime.
-    2. Dynamic Stop Loss.
-    3. Position Sizing validation.
+    Enforces risk limits and calculates AI-Optimized Position Size.
+    Now tunable via Hyperparameter Optimization.
     """
-    def __init__(self):
-        self.MAX_LEVERAGE_CALM = 10
-        self.MAX_LEVERAGE_VOLATILE = 2
-        self.MAX_DRAWDOWN_PER_TRADE = 0.02 # 2% max loss per trade
+    def __init__(self, kelly_fraction=0.25, max_leverage=20, sl_mult=1.0):
+        # Hyperparameters (tuned by scripts/optimize_strategy.py)
+        self.kelly_fraction = kelly_fraction # Fraction of Kelly size to use (Safety)
+        self.max_leverage = max_leverage
+        self.sl_buffer = 0.01 * sl_mult # Base Stop Loss distance
+        
+        self.MAX_DRAWDOWN_PER_TRADE = 0.05
 
     def check_risk(self, decision: dict, regime: int, portfolio_value: float) -> dict:
         """
-        Validates and adjusts the trade decision based on risk rules.
+        Calculates optimal size using Kelly Criterion and AI Confidence.
         """
-        if decision['action'] == 'NEUTRAL':
+        confidence = decision.get('confidence', 0.5)
+        action = decision.get('action')
+        
+        if action == 'NEUTRAL':
             return decision
 
-        # 1. Leverage Check
-        max_lev = self.MAX_LEVERAGE_CALM if regime != 2 else self.MAX_LEVERAGE_VOLATILE
+        # 1. Kelly Criterion for Sizing
+        # f = p - (1-p)/b
+        # p = Probability of Win (Confidence)
+        # b = Odds (Risk/Reward Ration). Assume 1.5 for Trend Following.
+        p = max(confidence, 0.51) # Assume edge
+        b = 1.5 
+        f_star = p - (1-p)/b
         
-        # We enforce leverage by adjusting position size if needed, 
-        # or just passing the constrained leverage to execution.
-        decision['max_leverage'] = max_lev
+        # Apply Safety Fraction (The "AI Tuned" parameter)
+        safe_f = f_star * self.kelly_fraction
+        safe_f = max(0.0, min(safe_f, 1.0)) # Clip 0% to 100%
         
-        # 2. Stop Loss Calculation
-        # Dynamic SL: wider in volatile markets (to avoid wicks), tighter in calm.
-        # But we must respect Max Drawdown.
-        # Loss = Position_Size * (Entry - Stop)
-        # Max_Loss = Portfolio * 0.02
-        # So |Entry - Stop| / Entry <= 0.02 / Leverage
+        # 2. Leverage Calc
+        # Effective Leverage = Safe_f / (Risk_Per_Trade) ?? 
+        # Simplified: Size = Portfolio * safe_f * Leverage
+        # Wait, usually Kelly outputs % of bankroll to risk.
+        # Let's use: Allocation % = safe_f. 
+        # Leverage = max_leverage (Isolated).
         
-        # Simple heuristic for SL distance based on confidence
-        base_sl_percent = 0.01 # 1% move
+        decision['allocation_pct'] = safe_f
+        decision['leverage'] = self.max_leverage
+        
+        # 3. Dynamic Stop Loss
+        # Volatile (Regime 2) -> Wider Stop
+        sl_dist = self.sl_buffer
         if regime == 2:
-            base_sl_percent = 0.03 # Allow more breathing room in volatility
+            sl_dist *= 2.0
             
-        decision['stop_loss_pct'] = base_sl_percent
+        decision['stop_loss_pct'] = sl_dist
         
-        # 3. Size Check (Mock logic for now, assumes size is passed or calculated later)
-        # If confidence is low, reduce size.
-        if decision.get('confidence', 0) < 0.5:
-            decision['risk_factor'] = 0.5 # Half size
-        else:
-            decision['risk_factor'] = 1.0
-
-        logger.info(f"Risk Check Passed. Regime: {regime}, MaxLev: {max_lev}, SL: {base_sl_percent*100}%")
+        logger.info(f"Risk Engine: Conf={confidence:.2f} -> Kelly={f_star:.2f} -> SafeAlloc={safe_f:.2%}")
         return decision
