@@ -7,26 +7,33 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from src.api.websocket_client import WeexWSClient
 
-def on_price_update(data):
-    """Callback when new data arrives"""
-    # Data is a list, usually one item for kline
-    candle = data[0] if isinstance(data, list) else data
-    print(f"🔥 LIVE: {candle.get('close')} (Vol: {candle.get('size')})")
+def on_account_update(data):
+    """Callback when account data arrives"""
+    # Data structure: see user provided JSON
+    # It contains a list of collateral info
+    try:
+        # data is usually nested in msg->data->collateral in push, 
+        # but our client passes data.get("data") which might be the inner dict or list
+        print(f"💰 ACCOUNT UPDATE: {data}")
+    except Exception as e:
+        print(f"Error parse: {e}")
 
 def main():
-    print("Initializing WebSocket...")
-    ws = WeexWSClient()
+    print("Initializing Private WebSocket (Account)...")
+    
+    # Enable Private Mode (Auth)
+    ws = WeexWSClient(use_private=True)
     ws.start()
     
     # Wait a sec for connection
     time.sleep(2)
     
-    # Subscribe to 1-minute candles for BTC
-    # Format: kline.{priceType}.{contractId}.{interval}
-    channel = "kline.LAST_PRICE.cmt_btcusdt.MINUTE_1"
-    ws.subscribe(channel, on_price_update)
+    # Subscribe to Account Channel
+    ws.subscribe_account(on_account_update)
     
-    print("Listening for 30 seconds... (Press Ctrl+C to stop)")
+    print("Listening for account updates (30s)...")
+    print("NOTE: You might not see updates unless balance changes.")
+    
     try:
         while True:
             time.sleep(1)

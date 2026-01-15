@@ -2,7 +2,12 @@ import json
 import time
 import threading
 import websocket
+import hmac
+import hashlib
+import base64
+from typing import Dict
 from src.utils.logger import setup_logger
+from config.settings import config
 
 logger = setup_logger(__name__)
 
@@ -10,20 +15,58 @@ class WeexWSClient:
     """
     WebSocket Client for WEEX Exchange.
     Handles connection, heartbeats, and data streaming.
+    Supports both Public and Private channels.
     """
-    def __init__(self, public_url="wss://ws-contract.weex.com/v2/ws/public"):
-        self.url = public_url
+    def __init__(self, use_private=False):
+        self.public_url = "wss://ws-contract.weex.com/v2/ws/public"
+        self.private_url = "wss://ws-contract.weex.com/v2/ws/private"
+        self.use_private = use_private
+        self.url = self.private_url if use_private else self.public_url
+        
         self.ws = None
         self.thread = None
         self.is_running = False
         self.callbacks = {} # channel -> callback_function
         
+        # Load Auth creds
+        self.api_key = config.API_KEY
+        self.secret_key = config.SECRET_KEY
+        self.passphrase = config.PASSPHRASE
+
+    def _generate_signature(self, timestamp: str, method: str, request_path: str) -> str:
+        """Generate HMAC SHA256 signature for WS login"""
+        # For WS, "method" is usually GET and "request_path" is /v2/ws/private
+        message = timestamp + method.upper() + request_path
+        signature = hmac.new(
+            self.secret_key.encode('utf-8'),
+            message.encode('utf-8'),
+            hashlib.sha256
+        ).digest()
+        return base64.b64encode(signature).decode('utf-8')
+
     def start(self):
         """Starts the WebSocket in a background thread"""
         self.is_running = True
+        
+        headers = {"User-Agent": "Mozilla/5.0"}
+        
+        if self.use_private:
+            # Generate Private Auth Headers
+            timestamp = str(int(time.time() * 1000))
+            request_path = "/v2/ws/private"
+            signature = self._generate_signature(timestamp, "GET", request_path)
+            
+            headers.update({
+                "ACCESS-KEY": self.api_key,
+                "ACCESS-SIGN": signature,
+                "ACCESS-TIMESTAMP": timestamp,
+                "ACCESS-PASSPHRASE": self.passphrase
+            })
+            logger.info("Connecting to Private WebSocket with Auth...")
+
         self.ws = websocket.WebSocketApp(
             self.url,
-            header={"User-Agent": "Mozilla/5.0"},
+            header=headers,
             on_open=self._on_open,
             on_message=self._on_message,
             on_error=self._on_error,
@@ -36,21 +79,19 @@ class WeexWSClient:
         logger.info(f"WebSocket Client started on {self.url}")
 
     def subscribe(self, channel, callback):
-        """
-        Subscribes to a channel.
-        example: ws.subscribe("kline.LAST_PRICE.cmt_btcusdt.MINUTE_1", my_func)
-        """
+        """Generic subscription"""
         self.callbacks[channel] = callback
-        
         if self.ws and self.ws.keep_running:
-            payload = {
-                "event": "subscribe",
-                "channel": channel
-            }
+            payload = {"event": "subscribe", "channel": channel}
             self.ws.send(json.dumps(payload))
             logger.info(f"Subscribed to {channel}")
-        else:
-            logger.warning("WebSocket not connected. Subscription queued (logic pending).")
+
+    def subscribe_account(self, callback):
+        """Subscribe to Account Channel (requires Private connection)"""
+        if not self.use_private:
+            logger.error("Cannot subscribe to Account channel on Public connection! Use WeexWSClient(use_private=True)")
+            return
+        self.subscribe("account", callback)
 
     def _on_open(self, ws):
         logger.info("WebSocket Connected")
