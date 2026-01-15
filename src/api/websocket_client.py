@@ -33,10 +33,10 @@ class WeexWSClient:
         self.secret_key = config.SECRET_KEY
         self.passphrase = config.PASSPHRASE
 
-    def _generate_signature(self, timestamp: str, method: str, request_path: str) -> str:
+    def _generate_signature(self, timestamp: str, request_path: str) -> str:
         """Generate HMAC SHA256 signature for WS login"""
-        # For WS, "method" is usually GET and "request_path" is /v2/ws/private
-        message = timestamp + method.upper() + request_path
+        # For WS, message is timestamp + request_path (No Method)
+        message = timestamp + request_path
         signature = hmac.new(
             self.secret_key.encode('utf-8'),
             message.encode('utf-8'),
@@ -54,7 +54,7 @@ class WeexWSClient:
             # Generate Private Auth Headers
             timestamp = str(int(time.time() * 1000))
             request_path = "/v2/ws/private"
-            signature = self._generate_signature(timestamp, "GET", request_path)
+            signature = self._generate_signature(timestamp, request_path)
             
             headers.update({
                 "ACCESS-KEY": self.api_key,
