@@ -39,11 +39,16 @@ class Coordinator(BaseAgent):
         # 3. Final Consensus
         final_decision = "NEUTRAL"
         final_reason = analysis.get('reason')
+        suggested_size = 0.0
+        stop_loss_dist = 0.0
         
         if risk_check['approved']:
             final_decision = signal
+            suggested_size = risk_check.get('suggested_size', 0.0)
+            stop_loss_dist = risk_check.get('stop_loss_dist', 0.0)
+            
             if final_decision != "NEUTRAL":
-                final_reason = f"Approved Trade: {final_reason}"
+                final_reason = f"Approved Trade: {final_reason} (Size: {suggested_size})"
         else:
             final_decision = "NEUTRAL"
             final_reason = f"Risk Veto: {risk_check['reason']}"
@@ -53,8 +58,10 @@ class Coordinator(BaseAgent):
             "action": final_decision,
             "confidence": confidence,
             "regime": regime,
-            "reason": final_reason
+            "reason": final_reason,
+            "size": suggested_size,           # <-- Dynamic Sizing
+            "stop_loss_dist": stop_loss_dist  # <-- Dynamic Stops
         }
         
-        self.logger.info(f"⚖️ Final Consensus: {result['action']} | {result['reason']}")
+        self.logger.info(f"⚖️ Final Consensus: {result['action']} | Size: {result['size']} | {result['reason']}")
         return result

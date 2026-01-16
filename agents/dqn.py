@@ -84,6 +84,17 @@ class TradingFeatureEngineer:
         df['spread'] = (df['high'] - df['low']) / df['close']
         features.append(df['spread'])
         
+        # ATR (Average True Range) - Critical for Volatility Awareness
+        # TR = Max(H-L, |H-Cp|, |L-Cp|)
+        prev_close = df['close'].shift(1)
+        tr1 = df['high'] - df['low']
+        tr2 = (df['high'] - prev_close).abs()
+        tr3 = (df['low'] - prev_close).abs()
+        tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+        df['atr'] = tr.rolling(14).mean()
+        # Normalize ATR by price to make it percentage-based (like volatility)
+        features.append(df['atr'] / df['close'])
+        
         # Support and Resistance (Rolling Min/Max) - Explicit levels for the Brain
         # 96 periods = 24 hours (on 15m candles)
         window = 96

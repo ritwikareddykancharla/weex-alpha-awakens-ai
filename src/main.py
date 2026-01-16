@@ -33,6 +33,9 @@ def run_bot():
     
     logger.info("✅ All systems initialized.")
 
+    session_high = 0.0
+    session_low = 999999.0
+
     while True:
         try:
             logger.info(f"\n⏰ New Cycle: {time.strftime('%Y-%m-%d %H:%M:%S')}")
@@ -104,10 +107,10 @@ def run_bot():
             has_position = market_data['position_size'] > 0
             
             if action == "LONG" and not has_position:
-                # Calculate Size (Kelly or Risk-based)
-                # For hackathon: Fixed size or simple % of equity
-                # Using 10% of balance for safety
-                quantity = (market_data['balance'] * 0.10) / current_price 
+                # Use RiskGuardian Sizing if available, else 10% fallback
+                quantity = decision.get("size", 0.0)
+                if quantity <= 0:
+                    quantity = (market_data['balance'] * 0.10) / current_price 
                 
                 logger.info(f"⚡ EXECUTING LONG: {quantity:.4f} {SYMBOL} @ {current_price}")
                 
@@ -129,9 +132,13 @@ def run_bot():
                     # ----------------------------------------------
                     
                     # B. Place HARD STOP BOSS (Safety Net)
-                    stop_price = current_price * (1 - HARD_STOP_PCT)
+                    stop_dist = decision.get("stop_loss_dist", 0.0)
+                    if stop_dist <= 0:
+                        stop_dist = current_price * HARD_STOP_PCT
+                    
+                    stop_price = current_price - stop_dist
                     client.place_stop_order(SYMBOL, "SELL", quantity, stop_price)
-                    logger.info(f"   🛡️ Hard Stop Set @ {stop_price:.2f}")
+                    logger.info(f"   🛡️ Hard Stop Set @ {stop_price:.2f} (Dist: {stop_dist:.2f})")
                     
                     # C. Log for Hackathon
                     log_trade(decision, order, "ENTRY_LONG")
@@ -140,7 +147,10 @@ def run_bot():
 
             elif action == "SHORT" and not has_position:
                 # Same logic for Short
-                quantity = (market_data['balance'] * 0.10) / current_price 
+                quantity = decision.get("size", 0.0)
+                if quantity <= 0:
+                    quantity = (market_data['balance'] * 0.10) / current_price 
+                    
                 logger.info(f"⚡ EXECUTING SHORT: {quantity:.4f} {SYMBOL} @ {current_price}")
                 
                 order = client.place_order(SYMBOL, "SELL", quantity, "MARKET")
@@ -160,26 +170,67 @@ def run_bot():
                     # ----------------------------------------------
                     
                     # Hard Stop (Above entry)
-                    stop_price = current_price * (1 + HARD_STOP_PCT)
+                    stop_dist = decision.get("stop_loss_dist", 0.0)
+                    if stop_dist <= 0:
+                        stop_dist = current_price * HARD_STOP_PCT
+                    
+                    stop_price = current_price + stop_dist
                     client.place_stop_order(SYMBOL, "BUY", quantity, stop_price)
-                    logger.info(f"   🛡️ Hard Stop Set @ {stop_price:.2f}")
+                    logger.info(f"   🛡️ Hard Stop Set @ {stop_price:.2f} (Dist: {stop_dist:.2f})")
                     
                     log_trade(decision, order, "ENTRY_SHORT")
 
-            elif action == "NEUTRAL" and has_position:
-                # Check if we should exit? 
-                # Coordinator currently returns NEUTRAL if HOLD. 
-                # Ideally, Coordinator returns 'EXIT_LONG' or 'EXIT_SHORT'. 
-                # For now, let's assume NEUTRAL means 'Do Nothing' if strictly following DQN.
-                # But if DQN flips from LONG -> NEUTRAL, maybe we close?
-                # Simpler: Only close if signal flips to OPPOSITE.
-                pass
-            
+            # --- TRAILING STOP & TAKE PROFIT LOGIC ---
+            if has_position:
+                # Determine direction based on position side (Long/Short)
+                # Note: Weex API position usually has 'side' or 'holdSide'
+                pos_side = position.get('side', 'LONG') # Default to LONG for safety
+                entry_price = float(position.get('avgPrice', 0))
+                
+                # 1. Update Trailing High/Low
+                if pos_side == "LONG":
+                    if current_price > session_high:
+                        session_high = current_price
+                        logger.info(f"📈 New Session High: {session_high} (Trail Trigger)")
+                        
+                    # Calculate Trailing Stop Price (e.g., 2% below High)
+                    trail_dist = current_price * 0.02 
+                    trail_price = session_high - trail_dist
+                    
+                    # Logic: If Price < Trail Price -> EXIT
+                    if current_price < trail_price and current_price > entry_price:
+                        logger.info(f"🛑 Trailing Stop Hit! High: {session_high}, Curr: {current_price}")
+                        client.close_position(SYMBOL)
+                        session_high = 0 # Reset
+                        session_low = 999999
+                        
+                    # Logic: Take Profit at +4% (Fixed Target)
+                    if current_price >= entry_price * (1 + TAKE_PROFIT_PCT):
+                         logger.info(f"💰 Take Profit Hit (+{TAKE_PROFIT_PCT*100}%)")
+                         client.close_position(SYMBOL)
+                         session_high = 0
+                         
+                elif pos_side == "SHORT":
+                    if current_price < session_low:
+                        session_low = current_price
+                        logger.info(f"📉 New Session Low: {session_low}")
+                        
+                    trail_dist = current_price * 0.02
+                    trail_price = session_low + trail_dist
+                    
+                    if current_price > trail_price and current_price < entry_price:
+                         logger.info(f"🛑 Trailing Stop Hit! Low: {session_low}, Curr: {current_price}")
+                         client.close_position(SYMBOL)
+                         session_low = 999999
+                         session_high = 0
+
             elif (action == "SHORT" and has_position) or (action == "LONG" and has_position):
                  # Simple Reverse logic: Close current, open new?
                  # For safety, let's just Close first.
                  logger.info("🔄 Signal Flip! Closing current position...")
                  client.close_position(SYMBOL)
+                 session_high = 0
+                 session_low = 999999
                  # Next loop will see 0 position and enter the new direction
             
             # Sleep until next candle
