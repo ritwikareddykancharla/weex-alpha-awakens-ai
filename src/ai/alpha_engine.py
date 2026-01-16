@@ -8,86 +8,65 @@ class AlphaEngine:
     Alpha Engine (DQN Signal Generator).
     Generates 'LONG', 'SHORT', 'NEUTRAL' signals based on Neural Network prediction.
     """
-    def __init__(self, model_path="models/quant_momentum_dqn.pth"):
+    def __init__(self, model_path="models/trend_classifier.pkl"):
         self.logger = setup_logger("AlphaEngine")
         self.model_path = model_path
-        self.bot = None
+        self.model = None
+        self.scaler = None
         self._load_model()
-        self.model_loaded = False # This line is kept as it was in the original code, but its value will be set by _load_model
 
     def _load_model(self):
-        # Lazy import to avoid circular dependencies if any
-        from agents.dqn import WEEXDQNTradingBot
-        self.bot = WEEXDQNTradingBot(symbol="BTC/USDT") # Symbol updated per request
-        
-        # Try load model
         import os
+        import joblib
+        
         if os.path.exists(self.model_path):
             try:
-                self.bot.load_model(self.model_path)
-                self.bot.agent.epsilon = 0.01 # Low exploration for inference
-                self.model_loaded = True
-                logger.info(f"Loaded DQN Model from {self.model_path}")
+                self.model = joblib.load(self.model_path)
+                
+                # Try load scaler too
+                scaler_path = self.model_path.replace("trend_classifier.pkl", "scaler.pkl")
+                if os.path.exists(scaler_path):
+                    self.scaler = joblib.load(scaler_path)
+                    
+                self.logger.info(f"✅ Loaded ML Model from {self.model_path}")
             except Exception as e:
-                logger.error(f"Failed to load DQN model: {e}")
+                self.logger.error(f"Failed to load ML model: {e}")
         else:
-            logger.warning(f"No model found at {self.model_path}. Agent will run in collection/fallback mode.")
+            self.logger.warning(f"No model found at {self.model_path}. Run 'python scripts/train_local.py' first.")
 
     def analyze(self, market_data: dict, regime: int, historical_data: pd.DataFrame = None) -> dict:
         """
-        Decides on action based on DQN Agent.
-        market_data: {'symbol': 'BTCUSDT', 'fundingRate': ..., 'markPrice': ...}
-        historical_data: DataFrame of klines for feature engineering
+        Predicts LONG/SHORT/NEUTRAL using Gradient Boosting.
         """
-        # 1. Feature Engineering & State Prep
-        if historical_data is None or len(historical_data) < 60:
-             return {
-                "action": "NEUTRAL",
-                "confidence": 0.0,
-                "reason": "Insufficient historical data for DQN"
-            }
+        # 1. Feature Engineering
+        if historical_data is None or len(historical_data) < 20:
+             return {"action": "NEUTRAL", "confidence": 0.0, "reason": "Insufficient Data"}
             
-        current_price = float(market_data.get('markPrice', 0))
-        balance = 1000.0 # Mock balance if not passed, or fetch from args if we update signature
-        position = 0.0 # Mock position
+        from src.strategy.signals.ai_model import AIModel
+        ai = AIModel()
         
-        # Compute features using the bot's engineer
-        from agents.dqn import TradingFeatureEngineer
         try:
-            features = TradingFeatureEngineer.compute_features(historical_data)
-            current_state = features[-1]
+            # Generate features exactly like training
+            features = ai.generate_features(historical_data)
             
-            # 2. Get Prediction
-            if self.model_loaded:
-                prediction = self.bot.predict(
-                    current_features=current_state,
-                    balance=balance,
-                    position=position,
-                    current_price=current_price
-                )
-                
-                # Map DQN actions (BUY/SELL/HOLD) to System Actions (LONG/SHORT/NEUTRAL)
-                # DQN: 0=HOLD, 1=BUY (Long), 2=SELL (Short)
-                dqn_action = prediction['action']
-                confidence = prediction['confidence']
-                
-                system_action = "NEUTRAL"
-                if dqn_action == "BUY": system_action = "LONG"
-                elif dqn_action == "SELL": system_action = "SHORT"
+            if features.empty:
+                return {"action": "NEUTRAL", "confidence": 0, "reason": "No Features"}
+            
+            # Get latest row
+            latest_features = features.iloc[[-1]]
+            
+            # 2. Prediction
+            if self.model and self.scaler:
+                signal, confidence = ai.predict(latest_features, self.model, self.scaler)
                 
                 return {
-                    "action": system_action,
+                    "action": signal,
                     "confidence": confidence,
-                    "reason": f"DQN Model {dqn_action} (Conf: {confidence:.2f})"
+                    "reason": f"ML Model Signal (Conf: {confidence:.2f})"
                 }
             else:
-                # Fallback: Collection Mode (Use dummy logic or simple rules while training)
-                return {
-                    "action": "NEUTRAL",
-                    "confidence": 0.0,
-                    "reason": "Model not loaded - Data Collection Mode"
-                }
+                return {"action": "NEUTRAL", "confidence": 0, "reason": "Model Not Loaded"}
                 
         except Exception as e:
-            logger.error(f"DQN Analysis Failed: {e}")
-            return {"action": "NEUTRAL", "confidence": 0, "reason": "DQN Error"}
+            self.logger.error(f"Analysis Failed: {e}")
+            return {"action": "NEUTRAL", "confidence": 0, "reason": "Error"}

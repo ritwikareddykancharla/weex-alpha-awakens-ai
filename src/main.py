@@ -13,7 +13,7 @@ def run_loop():
     # Initialize Components
     weex = WeexAPIClient()
     classifier = RegimeClassifier()
-    alpha_engine = AlphaEngine(model_path="models/quant_momentum_dqn.pth")
+    alpha_engine = AlphaEngine(model_path="models/trend_classifier.pkl")
     risk_engine = RiskEngine()
     position_manager = PositionManager(weex) # New Component
     
