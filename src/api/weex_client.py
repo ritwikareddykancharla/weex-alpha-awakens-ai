@@ -169,7 +169,31 @@ class WeexAPIClient:
         return self._request(
             "GET", f"/capi/v2/order?symbol={symbol}&orderId={order_id}"
         )
-    
+
+    def upload_ai_log(self, order_id: str = None, stage: str = "Strategy Generation", 
+                     model: str = "DQN-Agent-v1", input_data: Dict = None, 
+                     output_data: Dict = None, explanation: str = "") -> Dict:
+        """
+        Upload AI Log for Hackathon Compliance (Proof of AI).
+        See: POST /capi/v2/order/uploadAiLog
+        """
+        endpoint = "/capi/v2/order/uploadAiLog"
+        
+        payload = {
+            "orderId": order_id, # Can be None if just Strategy Generation
+            "stage": stage,
+            "model": model,
+            "input": input_data or {},
+            "output": output_data or {},
+            "explanation": explanation[:1000] # Max 1000 chars
+        }
+        
+        try:
+            return self._request("POST", endpoint, data=payload)
+        except Exception as e:
+            logger.error(f"Failed to upload AI Log: {e}")
+            return {"code": "ERROR", "msg": str(e)}
+
     # Test connection
     def test_connection(self) -> bool:
         """Test API connection"""

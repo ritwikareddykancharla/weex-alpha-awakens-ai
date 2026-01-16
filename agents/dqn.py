@@ -84,6 +84,16 @@ class TradingFeatureEngineer:
         df['spread'] = (df['high'] - df['low']) / df['close']
         features.append(df['spread'])
         
+        # Support and Resistance (Rolling Min/Max) - Explicit levels for the Brain
+        # 96 periods = 24 hours (on 15m candles)
+        window = 96
+        rolling_max = df['high'].rolling(window).max()
+        rolling_min = df['low'].rolling(window).min()
+        
+        # Distance features (How far are we from breakout/breakdown?)
+        features.append((rolling_max - df['close']) / df['close']) # Dist to Resistance
+        features.append((df['close'] - rolling_min) / df['close']) # Dist to Support
+        
         # Funding Rate (Critical for Sweep Strategy)
         if 'fundingRate' in df.columns:
             features.append(df['fundingRate'])
