@@ -1,11 +1,5 @@
 # 🏗️ Neuro-Symbolic Agent Architecture
 
-## Why fewer folders than Fenyr?
-Fenyr is built as a **Framework** (like a LEGO set) to let people build *any* bot.
-Your bot is a **Scalpel**—a precision instrument built for exactly ONE strategy (Winning the WEEX Hackathon).
-
-We cut the bloat. We kept the muscle.
-
 ## 📂 The Structure
 
 ### `src/agents/` (The Brain Trust)
