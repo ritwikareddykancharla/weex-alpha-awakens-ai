@@ -35,6 +35,10 @@ HACKATHON_CONFIG = {
     "transaction_cost": 0.001,  # 0.1% (taker fee)
     "slippage": 0.0005,  # 0.05% slippage
     "risk_penalty": 0.001,  # Punish position changes
+    
+    # Time Horizon (The User's Request)
+    "gamma": 0.99,  # 0.99 = Care about the next ~100 steps (24 hours). 
+                    # This sends the "Future Reward" back to the "Present Decision".
 }
 
 class TradingFeatureEngineer:
@@ -240,9 +244,19 @@ class DQNAgent:
         self.training_step = 0
         self.episode_rewards = []
         
-    def select_action(self, state: np.ndarray, training: bool = True) -> int:
-        """Epsilon-greedy with decay"""
+    def select_action(self, state: np.ndarray, training: bool = True, heuristic_action: int = None) -> int:
+        """
+        Epsilon-greedy with Heuristic Warm Start (Guided Exploration).
+        Instead of acting completely random, we bias towards a heuristic (EMA Strategy) early on.
+        """
         if training and random.random() < self.epsilon:
+            # GUIDED EXPLORATION:
+            # If a heuristic is provided (e.g., EMA signals), use it 80% of the time 
+            # during the exploration phase. This creates "Good Memories" fast.
+            if heuristic_action is not None and random.random() < 0.8:
+                return heuristic_action
+            
+            # Otherwise, purely random exploration
             return random.randint(0, self.action_dim - 1)
         
         with torch.no_grad():
@@ -711,14 +725,22 @@ class WEEXDQNTradingBot:
         print(f"Model saved to {filepath}")
     
     def load_model(self, filepath: str):
-        """Load pre-trained model"""
+        """Load pre-trained model and initialize agent"""
         checkpoint = torch.load(filepath, map_location='cpu')
         
-        # Create dummy agent (state_dim will be inferred later)
+        # 1. Update Config
         self.config = checkpoint['config']
         
-        # Note: You'll need to initialize env first to get state_dim
-        print(f"Model loaded from {filepath}. Initialize agent with env before using.")
+        # 2. Initialize Agent (Assume state_dim=19 as per current architecture)
+        state_dim = 19 
+        action_dim = len(self.ACTION_SPACE)
+        self.agent = DQNAgent(state_dim, action_dim, self.config, device="cpu")
+        
+        # 3. Load Weights
+        self.agent.q_network.load_state_dict(checkpoint['q_network_state_dict'])
+        self.agent.target_network.load_state_dict(checkpoint['q_network_state_dict'])
+        
+        print(f"✅ Model loaded and Agent initialized from {filepath}")
 
 
 # Example Usage for Hackathon

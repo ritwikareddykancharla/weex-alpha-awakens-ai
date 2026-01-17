@@ -10,7 +10,7 @@ class MarketAnalyst(BaseAgent):
     The 'Brain' & 'Eyes' of the system.
     Combines Regime Classification (GMM) and Deep Q-Network Prediction.
     """
-    def __init__(self, symbol="cmt_btcusdt", model_path_dqn="models/dqn_cmt_btcusdt.pth", model_path_gmm="models/regime_gmm.pkl"):
+    def __init__(self, symbol="cmt_btcusdt", model_path_dqn="models/dqn_sft_ema.pth", model_path_gmm="models/regime_gmm.pkl"):
         super().__init__("MarketAnalyst")
         
         # 1. Eyes (Context)

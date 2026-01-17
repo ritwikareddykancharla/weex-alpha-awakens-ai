@@ -47,8 +47,8 @@ class WeexAPIClient:
             "ACCESS-SIGN": signature,
             "ACCESS-TIMESTAMP": timestamp,
             "ACCESS-PASSPHRASE": self.passphrase,
-            "Content-Type": "application/json",
-            "locale": "en-US"
+            "locale": "en-US",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
         }
     
     def _request(self, method: str, endpoint: str, 
@@ -57,6 +57,9 @@ class WeexAPIClient:
         url = f"{self.base_url}{endpoint}"
         headers = self._get_headers(method, endpoint, 
                                    json.dumps(data) if data else "")
+        
+        if method == "POST":
+            headers["Content-Type"] = "application/json"
         
         try:
             if method == "GET":
